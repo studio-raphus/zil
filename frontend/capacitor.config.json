@@ -1,0 +1,7 @@
+{
+  "appId": "mu.zil.app",
+  "appName": "Zil",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" },
+  "android": { "backgroundColor": "#FFF6E6" }
+}

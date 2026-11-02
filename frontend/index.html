@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Zil · Mauritius 3D map</title>
+  <meta name="description" content="Explore Mauritius on a playful 3D map: beaches, hikes, food and what’s happening live.">
+  <meta name="theme-color" content="#FFC83D">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:ital,wght@0,400;0,700;1,700&display=swap">
+</head>
+<body>
+  <div id="stage" aria-hidden="true"></div>
+  <div id="pins" class="pins" aria-label="Places on the map"></div>
+
+  <div class="ui">
+    <header class="topbar">
+      <div class="brand pe" title="Zil">
+        <svg viewBox="0 0 76 62" aria-hidden="true"><polygon class="b-sh" id="burstSh"/><polygon class="b-fg" id="burstFg"/><text x="37" y="41" text-anchor="middle">ZIL</text></svg>
+        <span class="brand-tag">BETA</span>
+      </div>
+      <div class="searchwrap pe">
+        <div class="search" role="search">
+          <span id="searchIc"></span>
+          <input id="q" type="search" placeholder="Search beaches, food, hikes…" autocomplete="off" spellcheck="false" aria-label="Search places in Mauritius" aria-controls="results" aria-expanded="false">
+          <button class="qclear" id="qclear" type="button" aria-label="Clear search" hidden></button>
+        </div>
+        <div class="results card" id="results" role="listbox" hidden></div>
+      </div>
+      <button class="iconbtn pe" id="infoBtn" type="button" aria-label="About Zil"></button>
+      <button class="iconbtn pe compass" id="compass" type="button" aria-label="Point the map north">
+        <svg class="needle" id="needle" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 15.6 12H8.4z" fill="var(--accent)" stroke="var(--line)" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 21.5 8.4 12h7.2z" fill="var(--surface-3)" stroke="var(--line)" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+    <nav class="chips pe" id="chips" aria-label="Filter places"></nav>
+    <div class="routechip pe" id="routeChip" hidden></div>
+    <div class="addbanner pe" id="addBanner" hidden><b>Drop a spot!</b><span>Tap anywhere on the island.</span><button class="btn sm" type="button" id="addCancel">Cancel</button></div>
+    <div class="hint pe" id="hint"></div>
+  </div>
+
+  <div class="fabs" id="fabs">
+    <button class="fab" id="fabHome" type="button" aria-label="Show the whole island"></button>
+    <button class="fab" id="fabNight" type="button" aria-label="Night map" aria-pressed="false"></button>
+    <button class="fab yellow" id="fabAdd" type="button" aria-label="Add a place"></button>
+  </div>
+  <div class="strip" id="strip" aria-label="Live now"></div>
+
+  <section class="sheet" id="sheet" aria-hidden="true" aria-label="Place details">
+    <div class="handle"></div>
+    <button class="iconbtn sm sheet-x" type="button" data-act="close" aria-label="Close" id="sheetX"></button>
+    <div id="sheetBody"></div>
+  </section>
+
+  <div class="modal" id="aboutModal" hidden>
+    <div class="card dialog about" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+      <div class="dialog-head"><h2 id="aboutTitle">About Zil</h2><button class="iconbtn sm" type="button" id="aboutClose" aria-label="Close"></button></div>
+      <ul>
+        <li><b>Map:</b> a stylised Mauritius. Mountains are exaggerated about 6× and coastlines are simplified.</li>
+        <li><b>Live:</b> status lines come from the Zil live feed and update without reloading.</li>
+        <li><b>Your spots:</b> private until the Zil team approves them.</li>
+        <li><b>Coming next:</b> bookings with licensed operators, AR scenes and the Dodo trip planner.</li>
+      </ul>
+      <p class="fine">Map data © OpenStreetMap contributors (production tiles). Phase 1 beta.</p>
+    </div>
+  </div>
+
+  <div class="snack" id="snack" role="status" aria-live="polite"></div>
+  <div class="fallback" id="fallback" hidden></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

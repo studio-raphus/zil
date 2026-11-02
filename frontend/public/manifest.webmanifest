@@ -1,0 +1,10 @@
+{
+  "name": "Zil · Mauritius 3D map",
+  "short_name": "Zil",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFF6E6",
+  "theme_color": "#FFC83D",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

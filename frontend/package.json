@@ -1,0 +1,21 @@
+{
+  "name": "@zil/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zil Phase 1 web app (PWA) and Android shell",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:setup": "npm i -D @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 && npm run build && npx cap add android"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

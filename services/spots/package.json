@@ -1,0 +1,17 @@
+{
+  "name": "@zil/spots-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zil spots service: community-added places with moderation",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "fastify": "^4.28.1",
+    "pg": "^8.12.0"
+  }
+}

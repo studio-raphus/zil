@@ -1,0 +1,62 @@
+# Local / single-host stack. Every service is an independent container with its own
+# database, config via environment variables and a health check. Open http://localhost:8080
+name: zil
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+    ports: ["5432:5432"]
+
+  catalog:
+    build: ./services/catalog
+    environment:
+      SERVICE_NAME: catalog
+      PORT: 3000
+      DATABASE_URL: postgres://catalog_svc:catalog_dev@db:5432/zil_catalog
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on: { db: { condition: service_healthy } }
+
+  spots:
+    build: ./services/spots
+    environment:
+      SERVICE_NAME: spots
+      PORT: 3000
+      DATABASE_URL: postgres://spots_svc:spots_dev@db:5432/zil_spots
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on: { db: { condition: service_healthy } }
+
+  live:
+    build: ./services/live
+    environment:
+      SERVICE_NAME: live
+      PORT: 3000
+      DATABASE_URL: postgres://live_svc:live_dev@db:5432/zil_live
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on: { db: { condition: service_healthy } }
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: /api
+
+  gateway:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports: ["8080:80"]
+    depends_on: [catalog, spots, live, frontend]
+
+volumes:
+  pgdata:

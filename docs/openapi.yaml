@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: Zil Phase 1 API (via gateway)
+  version: 0.1.0
+  description: Three independent services behind one gateway. Paths below include the gateway prefix.
+servers:
+  - url: http://localhost:8080/api
+components:
+  securitySchemes:
+    admin: { type: http, scheme: bearer }
+  parameters:
+    deviceId: { name: X-Device-Id, in: header, required: false, schema: { type: string, pattern: '^[A-Za-z0-9-]{8,64}$' } }
+  schemas:
+    Category:
+      type: object
+      properties: { id: { type: string }, label: { type: string }, one: { type: string }, color: { type: string }, icon: { type: string } }
+    Place:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        short: { type: string }
+        cat: { type: string }
+        lat: { type: number }
+        lon: { type: number }
+        time: { type: string }
+        best: { type: string }
+        cost: { type: string }
+        blurb: { type: string }
+        fact: { type: string }
+        tips: { type: array, items: { type: string } }
+        tags: { type: string }
+    Spot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 40 }
+        cat: { type: string }
+        note: { type: string, maxLength: 200 }
+        lat: { type: number }
+        lon: { type: number }
+        status: { type: string, enum: [pending, approved, rejected] }
+        mine: { type: boolean }
+        created_at: { type: string, format: date-time }
+    LiveStatus:
+      type: object
+      properties: { place_id: { type: string }, text: { type: string }, hot: { type: boolean }, updated_at: { type: string, format: date-time } }
+    FeedItem:
+      type: object
+      properties: { id: { type: string }, place_id: { type: string }, text: { type: string }, created_at: { type: string, format: date-time } }
+paths:
+  /catalog/v1/categories:
+    get: { summary: List categories, responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Category' } } } } } } }
+  /catalog/v1/places:
+    get:
+      summary: List places
+      parameters:
+        - { name: cat, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: bbox, in: query, description: 'minLon,minLat,maxLon,maxLat', schema: { type: string } }
+        - { name: lang, in: query, schema: { type: string, example: fr } }
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Place' } } } } } }
+  /catalog/v1/places/{id}:
+    get:
+      summary: One place
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Place' } } } }, '404': { description: Not found } }
+  /catalog/v1/places/near:
+    get:
+      summary: Places within a radius, nearest first
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number } }
+        - { name: lon, in: query, required: true, schema: { type: number } }
+        - { name: km, in: query, schema: { type: number, default: 10, maximum: 100 } }
+      responses: { '200': { description: OK } }
+  /spots/v1/spots:
+    get:
+      summary: Approved spots plus the caller's own
+      parameters: [{ $ref: '#/components/parameters/deviceId' }]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Spot' } } } } } }
+    post:
+      summary: Create a spot (pending review)
+      parameters: [{ $ref: '#/components/parameters/deviceId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [name, cat, lat, lon], properties: { name: { type: string }, cat: { type: string }, note: { type: string }, lat: { type: number }, lon: { type: number } } } } }
+      responses: { '201': { description: Created }, '400': { description: Invalid }, '429': { description: Daily limit reached } }
+  /spots/v1/spots/{id}:
+    delete:
+      summary: Delete own spot (or any, with admin token)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/deviceId' }]
+      responses: { '204': { description: Deleted }, '404': { description: Not found or not yours } }
+  /spots/v1/spots/{id}/status:
+    patch:
+      summary: Moderate a spot
+      security: [{ admin: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [approved, rejected, pending] } } } } } }
+      responses: { '200': { description: Updated }, '401': { description: Unauthorized } }
+  /spots/v1/moderation/queue:
+    get: { summary: Pending spots, security: [{ admin: [] }], responses: { '200': { description: OK } } }
+  /live/v1/status:
+    get: { summary: Current status line per place, responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/LiveStatus' } } } } } } }
+    post:
+      summary: Set a place's status (also appends to the feed and pushes to streams)
+      security: [{ admin: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [place_id, text], properties: { place_id: { type: string }, text: { type: string, maxLength: 60 }, hot: { type: boolean } } } } } }
+      responses: { '201': { description: Created } }
+  /live/v1/feed:
+    get:
+      summary: Recent live updates
+      parameters: [{ name: limit, in: query, schema: { type: integer, default: 12, maximum: 50 } }]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/FeedItem' } } } } } }
+  /live/v1/stream:
+    get:
+      summary: Server-Sent Events; event "status" carries a LiveStatus JSON
+      responses: { '200': { description: text/event-stream } }
