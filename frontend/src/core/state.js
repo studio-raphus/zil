@@ -8,7 +8,8 @@ export const state = {
   filter: 'all',
   selectedId: null,
   addMode: false,
-  offline: false
+  offline: false,
+  user: null         // { id, name, email } when signed in with Google
 };
 
 export const allPlaces = () => state.places.concat(state.spots);

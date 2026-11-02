@@ -234,3 +234,54 @@ body.sheet-open .fabs{opacity:0;pointer-events:none;transform:translateY(16px)}
   .sheet{max-height:86dvh}
   .hint{display:none}
 }
+
+/* ---------- account: sign in with Google + profile (top right) ---------- */
+.topbar{max-width:none}
+.searchwrap{max-width:566px}
+.account{position:relative;margin-left:auto;flex:none}
+.acct-btn{display:flex;align-items:center;gap:8px;height:52px;padding:0 16px 0 5px;border-radius:999px;border:3px solid var(--line);background:var(--surface);color:var(--text);box-shadow:3px 3px 0 var(--shadow);transition:transform .08s,box-shadow .08s}
+.acct-btn.out{background:var(--sun);color:var(--on-bright)}
+.acct-btn:hover{filter:brightness(1.04)}
+.acct-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--shadow)}
+.acct-btn[aria-expanded="true"]{box-shadow:3px 3px 0 var(--shadow),0 0 0 3px var(--focus)}
+.acct-name{font:20px/1 var(--fd);letter-spacing:.05em;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-top:2px}
+.acct-ic{flex:none;width:36px;height:36px;border-radius:50%;background:var(--surface);color:var(--text);border:2.5px solid var(--line);display:grid;place-items:center}
+.acct-ic .i{width:20px;height:20px}
+.avatar{flex:none;width:38px;height:38px;border-radius:50%;background:var(--c);color:var(--on-bright);border:2.5px solid var(--line);display:grid;place-items:center;font:19px/1 var(--fd);letter-spacing:.04em;padding-top:2px}
+.avatar.lg{width:54px;height:54px;font-size:26px;box-shadow:2px 2px 0 var(--line)}
+.acct-menu{position:absolute;top:calc(100% + 14px);right:0;width:min(300px,calc(100vw - var(--gl) - var(--gr)));padding:14px;display:flex;flex-direction:column;gap:10px;z-index:4;transform-origin:calc(100% - 30px) 0;animation:acctpop .2s cubic-bezier(.3,1.5,.5,1)}
+.acct-menu::before{content:"";position:absolute;right:20px;top:-11px;width:17px;height:17px;background:var(--surface);border-left:3px solid var(--line);border-top:3px solid var(--line);border-top-left-radius:4px;transform:rotate(45deg)}
+@keyframes acctpop{from{transform:scale(.85)}to{transform:none}}
+.acct-title{margin:2px 0 0;font:26px/1 var(--fd);letter-spacing:.04em;font-weight:400;text-shadow:2px 2px 0 var(--sun)}
+.acct-lead{margin:0;font-size:14.5px;line-height:1.4}
+.acct-menu .fine{margin:0}
+.auth-art{position:relative;height:84px;border:3px solid var(--line);border-radius:14px;overflow:hidden;background:radial-gradient(rgba(7,6,15,.14) 1.3px,transparent 1.6px) 0 0/9px 9px,var(--sky);box-shadow:2px 2px 0 var(--shadow)}
+.auth-burst{position:absolute;left:50%;top:50%;width:132px;height:132px;transform:translate(-50%,-50%);background:var(--hot);clip-path:var(--star)}
+.auth-pow{position:absolute;left:50%;top:50%;transform:translate(-50%,-46%) rotate(-6deg);font:30px/1 var(--fd);letter-spacing:.06em;color:var(--on-bright)}
+.gbtn{text-decoration:none;height:50px;gap:10px;font-size:16px}
+.gbtn .g-logo{flex:none;width:30px;height:30px;border-radius:50%;background:#FFFFFF;border:2px solid var(--line);display:grid;place-items:center}
+.gbtn .g-logo svg{width:17px;height:17px;display:block}
+.gbtn[disabled]{opacity:.55;cursor:not-allowed}
+.gbtn.busy{pointer-events:none;opacity:.75}
+.acct-head{display:flex;align-items:center;gap:12px;min-width:0}
+.acct-id{min-width:0}
+.acct-id b{display:block;font:22px/1.05 var(--fd);letter-spacing:.04em;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-id span{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.acct-sep{width:100%;margin:0;border:0;border-top:2.5px dashed var(--line);opacity:.3}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:12px;background:none;font:700 15px var(--fb);text-align:left}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item .i{width:20px;height:20px}
+.menu-item.danger{color:var(--accent-text)}
+/* phones: the profile collapses to a round button and "About" moves into its card */
+@media (max-width:599px){
+  #infoBtn{display:none}
+  .acct-btn{width:48px;height:48px;padding:0;justify-content:center}
+  .acct-name{display:none}
+  .acct-btn.out .acct-ic{border:0;background:none;color:var(--on-bright)}
+  .acct-menu::before{right:12px}
+}
+@media (max-width:420px){
+  .acct-btn{width:44px;height:44px}
+  .avatar{width:34px;height:34px;font-size:17px}
+  .avatar.lg{width:50px;height:50px;font-size:24px}
+}

@@ -14,6 +14,7 @@ import { initSearch } from './features/search.js';
 import { initStrip, renderStrip } from './features/livestrip.js';
 import { initSheet } from './features/sheet.js';
 import { initSpots, spotToPlace } from './features/spots.js';
+import { initAccount } from './features/account.js';
 
 function placePosition(p) {
   const q = ll(p.lat, p.lon);
@@ -45,6 +46,7 @@ async function boot() {
 
   initChrome({ onHome: home, onNorth: northUp, onNight: setNight });
   if (api.offline) setOfflineBadge(true);
+  initAccount();
   initOverlay(ctx.avatars);
   state.places.forEach(addPin);
   state.spots.forEach(addPin);

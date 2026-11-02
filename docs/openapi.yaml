@@ -2,15 +2,19 @@ openapi: 3.0.3
 info:
   title: Zil Phase 1 API (via gateway)
   version: 0.1.0
-  description: Three independent services behind one gateway. Paths below include the gateway prefix.
+  description: Four independent services behind one gateway (catalog, spots, live, accounts). Paths below include the gateway prefix.
 servers:
   - url: http://localhost:8080/api
 components:
   securitySchemes:
     admin: { type: http, scheme: bearer }
+    session: { type: apiKey, in: cookie, name: zil_sid }
   parameters:
     deviceId: { name: X-Device-Id, in: header, required: false, schema: { type: string, pattern: '^[A-Za-z0-9-]{8,64}$' } }
   schemas:
+    User:
+      type: object
+      properties: { id: { type: string, format: uuid }, name: { type: string }, email: { type: string, format: email } }
     Category:
       type: object
       properties: { id: { type: string }, label: { type: string }, one: { type: string }, color: { type: string }, icon: { type: string } }
@@ -115,3 +119,27 @@ paths:
     get:
       summary: Server-Sent Events; event "status" carries a LiveStatus JSON
       responses: { '200': { description: text/event-stream } }
+  /accounts/v1/session:
+    get:
+      summary: Current user (null when signed out) and enabled sign-in providers
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { user: { nullable: true, allOf: [{ $ref: '#/components/schemas/User' }] }, providers: { type: object, properties: { google: { type: boolean } } } } } } } }
+  /accounts/v1/me:
+    get:
+      summary: Signed-in user, for other services (phase 2)
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '401': { description: Not signed in }
+  /accounts/v1/auth/google/start:
+    get:
+      summary: Browser navigation. Redirects to Google (OAuth 2.0 code flow + PKCE); first sign-in creates the account
+      responses: { '302': { description: Redirect to Google consent screen } }
+  /accounts/v1/auth/google/callback:
+    get:
+      summary: Google redirects here. Sets the zil_sid session cookie and redirects to /?auth=welcome|signed_in|cancelled|error
+      responses: { '302': { description: Redirect back to the app } }
+  /accounts/v1/auth/logout:
+    post:
+      summary: Ends the session and clears the cookie
+      responses: { '204': { description: Signed out } }

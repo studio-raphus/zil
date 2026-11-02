@@ -1,6 +1,6 @@
 // Dependency-free dev gateway: same routes as gateway/nginx.conf, for running without Docker.
 //   node tools/dev-gateway.mjs            -> http://localhost:8080
-// Env: CATALOG_URL, SPOTS_URL, LIVE_URL (defaults localhost:3001-3003), STATIC_DIR (default frontend/dist)
+// Env: CATALOG_URL, SPOTS_URL, LIVE_URL, ACCOUNTS_URL (defaults localhost:3001-3004), STATIC_DIR (default frontend/dist)
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -11,7 +11,8 @@ const STATIC = path.resolve(process.env.STATIC_DIR || path.join(root, 'frontend/
 const routes = {
   '/api/catalog/': process.env.CATALOG_URL || 'http://127.0.0.1:3001',
   '/api/spots/': process.env.SPOTS_URL || 'http://127.0.0.1:3002',
-  '/api/live/': process.env.LIVE_URL || 'http://127.0.0.1:3003'
+  '/api/live/': process.env.LIVE_URL || 'http://127.0.0.1:3003',
+  '/api/accounts/': process.env.ACCOUNTS_URL || 'http://127.0.0.1:3004'
 };
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 

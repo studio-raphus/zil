@@ -64,10 +64,11 @@ docker compose up --build
 **Without Docker** (Postgres 16 + PostGIS installed locally):
 
 ```bash
-psql -U postgres -f db/init/01-databases.sql
+psql -U postgres -f db/init/01-databases.sql -f db/init/02-accounts.sql
 cd services/catalog && npm i && DATABASE_URL=postgres://catalog_svc:catalog_dev@localhost:5432/zil_catalog PORT=3001 npm run dev
 cd services/spots   && npm i && DATABASE_URL=postgres://spots_svc:spots_dev@localhost:5432/zil_spots ADMIN_TOKEN=dev PORT=3002 npm run dev
 cd services/live    && npm i && DATABASE_URL=postgres://live_svc:live_dev@localhost:5432/zil_live ADMIN_TOKEN=dev PORT=3003 npm run dev
+cd services/accounts && npm i && DATABASE_URL=postgres://accounts_svc:accounts_dev@localhost:5432/zil_accounts GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... PORT=3004 npm run dev
 cd frontend && npm i && npm run build && cd .. && node tools/dev-gateway.mjs   # http://localhost:8080
 ```
 
@@ -82,6 +83,20 @@ npm run android:sync && npm run android:open                        # build in A
 ```
 
 Personal Play accounts must run a closed test (12+ testers for 14 days) before production.
+
+## Sign in with Google (accounts service)
+
+Users can sign in (or sign up on their first visit) with Google from the profile button at the top right. Zil stores only their **name and email** (plus Google's account id as the login key). Sessions are server-side, held in an HttpOnly `zil_sid` cookie for 30 days.
+
+One-time setup:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → *Create credentials* → *OAuth client ID* → **Web application**.
+2. Authorised redirect URI: `http://localhost:8080/api/accounts/v1/auth/google/callback` (add your staging/production URLs too, e.g. `https://zil.mu/api/accounts/v1/auth/google/callback`).
+3. OAuth consent screen: app name *Zil*, scopes `openid`, `email`, `profile`. While in *Testing* mode, add your testers' Google accounts.
+4. Put the values in `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL` (the public origin, e.g. `http://localhost:8080`).
+5. Existing database volume only: `docker compose exec -T db psql -U postgres < db/init/02-accounts.sql`, then `docker compose up --build`.
+
+Without the Google keys the service still runs; the sign-in card says Google sign-in isn't configured.
 
 ## Try the live and moderation APIs
 
@@ -107,6 +122,7 @@ services/
   catalog/          categories + places (PostGIS: bbox and "near me" queries), seeded from seed/places.json
   spots/            community spots: create, list, delete own, moderation queue, approve/reject
   live/             status lines, feed, Server-Sent Events stream, admin updates
+  accounts/         sign in with Google (OAuth code flow + PKCE), users (name + email), sessions
 frontend/
   src/core/         utils, icons, event bus, state
   src/api/          API client with offline fallback

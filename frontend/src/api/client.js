@@ -68,6 +68,16 @@ export const api = {
     return () => es.close();
   },
 
+  // ---- accounts (sign in with Google) ----
+  // Separate from bootstrap so an accounts outage never pushes the map into offline mode.
+  async session() {
+    if (this.offline) return null;
+    try { return await http('/accounts/v1/session', { credentials: 'include' }); }
+    catch (e) { console.warn('[zil] accounts unavailable:', e.message); return null; }
+  },
+  googleSignInUrl: () => `${base}/accounts/v1/auth/google/start`,
+  signOut() { return http('/accounts/v1/auth/logout', { method: 'POST', body: '{}', credentials: 'include' }); },
+
   async createSpot(spot) {
     if (this.offline) {
       const s = { ...spot, id: 'local-' + Date.now().toString(36), status: 'pending', mine: true, created_at: new Date().toISOString() };

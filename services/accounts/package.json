@@ -1,0 +1,17 @@
+{
+  "name": "@zil/accounts-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zil accounts service: sign-in with Google, user profile (name + email) and sessions",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "fastify": "^4.28.1",
+    "pg": "^8.12.0"
+  }
+}
