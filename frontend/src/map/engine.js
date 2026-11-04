@@ -155,6 +155,7 @@ export function setNight(on) {
 
 function loop(now) {
   requestAnimationFrame(loop);
+  if (ctx.paused) { last = now; return; } // street map is showing: save the battery
   const { controls, camera, renderer, scene } = ctx;
   const dt = Math.min(0.05, (now - last) / 1000), t = now / 1000; last = now;
   if (tw) stepTween(now); else controls.update();

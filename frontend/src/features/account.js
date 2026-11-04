@@ -6,6 +6,7 @@ import { ic, googleG } from '../core/icons.js';
 import { bus } from '../core/bus.js';
 import { state } from '../core/state.js';
 import { api } from '../api/client.js';
+import { isNative, nativeGoogleSignIn, nativeGoogleSignOut, alertsOn, initPush, stopPush } from './native.js';
 
 const TINTS = ['var(--sun)', 'var(--leaf)', 'var(--grape)', 'var(--tomato)', 'var(--sky)', 'var(--pink)'];
 const RETURN_MSG = {
@@ -31,18 +32,22 @@ function signedOutMenu() {
     <div class="auth-art" aria-hidden="true"><span class="auth-burst"></span><span class="auth-pow">Hello!</span></div>
     <h2 class="acct-title" id="acctTitle">Join the island</h2>
     <p class="acct-lead">One tap with Google signs you in. First time here? Your Zil account is created on the spot.</p>
-    ${href
+    ${href && isNative()
+      ? `<button class="btn wide gbtn" type="button" data-act="google-native"><span class="g-logo">${googleG}</span>Continue with Google</button>`
+      : href
       ? `<a class="btn wide gbtn" href="${esc(href)}" data-act="google"><span class="g-logo">${googleG}</span>Continue with Google</a>`
       : `<button class="btn wide gbtn" type="button" disabled><span class="g-logo">${googleG}</span>Continue with Google</button>`}
     <p class="fine">${google ? 'We keep only your name and email. The map works without an account.' : 'Google sign-in isn’t configured on this server yet.'}</p>
-    <hr class="acct-sep">
+    <hr class="acct-sep">${alertsItem()}
     <button class="menu-item" type="button" data-act="about">${ic('info')}About Zil</button>`;
 }
+
+const alertsItem = () => isNative() ? `<button class="menu-item" type="button" data-act="alerts" aria-pressed="${alertsOn()}">${ic('info')}Live alerts: ${alertsOn() ? 'on' : 'off'}</button>` : '';
 
 function signedInMenu() {
   return `
     <div class="acct-head">${avatar('lg')}<div class="acct-id"><b id="acctTitle">${esc(user.name)}</b><span>${esc(user.email)}</span></div></div>
-    <hr class="acct-sep">
+    <hr class="acct-sep">${alertsItem()}
     <button class="menu-item" type="button" data-act="about">${ic('info')}About Zil</button>
     <button class="menu-item danger" type="button" data-act="signout">${ic('logout')}Sign out</button>`;
 }
@@ -71,9 +76,30 @@ function setOpen(on) {
 
 async function signOut() {
   try { await api.signOut(); } catch (e) { bus.emit('snack', `Couldn’t sign out: ${e.message}`); return; }
+  if (isNative()) nativeGoogleSignOut();
   user = null; state.user = null; render();
   bus.emit('auth:change', null);
   bus.emit('snack', 'Signed out. See you on the island!');
+}
+
+async function signInNative(btn) {
+  btn.classList.add('busy');
+  try {
+    const r = await nativeGoogleSignIn();
+    user = r.user; state.user = user; render();
+    bus.emit('auth:change', user);
+    bus.emit('snack', RETURN_MSG[r.created ? 'welcome' : 'signed_in'](firstName(user.name)), 4000);
+  } catch (e) {
+    btn.classList.remove('busy');
+    if (!/cancel/i.test(e.message || '')) bus.emit('snack', `Google sign-in didn’t work: ${e.message}`, 5000);
+  }
+}
+
+async function toggleAlerts() {
+  if (alertsOn()) { await stopPush(); bus.emit('snack', 'Live alerts off'); }
+  else if (await initPush({ ask: true })) bus.emit('snack', 'Live alerts on: we’ll only ping you for big things.');
+  else bus.emit('snack', 'Notifications are blocked for Zil. Turn them on in Android settings.', 5000);
+  const wasOpen = open; render(); if (wasOpen) setOpen(true);
 }
 
 function consumeReturnParam() {
@@ -93,6 +119,8 @@ export async function initAccount() {
     if (act === 'about') { setOpen(false); $('#infoBtn').click(); }
     else if (act === 'signout') { setOpen(false); signOut(); }
     else if (act === 'google') { e.currentTarget.classList.add('busy'); } // full-page redirect follows
+    else if (act === 'google-native') signInNative(e.target.closest('[data-act]'));
+    else if (act === 'alerts') toggleAlerts();
   });
   document.addEventListener('pointerdown', e => { if (open && !root.contains(e.target)) setOpen(false); });
   // Capture phase so Escape closes the menu without also closing the place sheet behind it.

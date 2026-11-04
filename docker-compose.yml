@@ -20,6 +20,7 @@ services:
     build: ./services/catalog
     environment:
       SERVICE_NAME: catalog
+      ACCOUNTS_URL: http://accounts:3000
       PORT: 3000
       DATABASE_URL: postgres://catalog_svc:catalog_dev@db:5432/zil_catalog
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
@@ -29,6 +30,7 @@ services:
     build: ./services/spots
     environment:
       SERVICE_NAME: spots
+      ACCOUNTS_URL: http://accounts:3000
       PORT: 3000
       DATABASE_URL: postgres://spots_svc:spots_dev@db:5432/zil_spots
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
@@ -39,10 +41,15 @@ services:
     build: ./services/live
     environment:
       SERVICE_NAME: live
+      ACCOUNTS_URL: http://accounts:3000
       PORT: 3000
       DATABASE_URL: postgres://live_svc:live_dev@db:5432/zil_live
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
+      # Push notifications (optional): Firebase service account JSON in ./secrets/
+      FCM_SERVICE_ACCOUNT_FILE: /run/zil-secrets/firebase-service-account.json
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    volumes:
+      - ./secrets:/run/zil-secrets:ro
     depends_on: { db: { condition: service_healthy } }
 
   accounts:
@@ -54,8 +61,33 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Comma-separated emails that become Studio admins when they sign in (bootstrap the first admin)
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on: { db: { condition: service_healthy } }
+
+  # Road routing: OSRM with the Mauritius road network (built once, ~1-2 min), behind Zil's routing API
+  osrm:
+    build: ./services/routing/osrm
+    restart: unless-stopped
+
+  routing:
+    build: ./services/routing
+    environment:
+      SERVICE_NAME: routing
+      PORT: 3000
+      OSRM_URL: http://osrm:5000
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on: [osrm]
+
+  # Street-level map: Mauritius vector tiles (PMTiles) + label fonts, cut from Protomaps at build time
+  tiles:
+    build:
+      context: ./services/tiles
+      args:
+        # optional: pin a build from https://maps.protomaps.com/builds/ (default: newest)
+        PMTILES_SOURCE: ${PMTILES_SOURCE:-}
+    restart: unless-stopped
 
   frontend:
     build:
@@ -68,7 +100,7 @@ services:
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     ports: ["8080:80"]
-    depends_on: [catalog, spots, live, accounts, frontend]
+    depends_on: [catalog, spots, live, accounts, routing, tiles, frontend]
 
 volumes:
   pgdata:

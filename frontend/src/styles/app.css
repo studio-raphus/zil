@@ -285,3 +285,39 @@ body.sheet-open .fabs{opacity:0;pointer-events:none;transform:translateY(16px)}
   .avatar{width:34px;height:34px;font-size:17px}
   .avatar.lg{width:50px;height:50px;font-size:24px}
 }
+
+/* ---------- device location button ---------- */
+#fabLocate[data-state="on"]{background:var(--sky);color:var(--on-bright)}
+#fabLocate[data-state="away"],#fabLocate[data-state="off"]{color:var(--muted)}
+#fabLocate[data-state="off"] .i{opacity:.55}
+#fabLocate[data-state="busy"] .i{animation:locpulse 1s ease-in-out infinite}
+@keyframes locpulse{50%{transform:scale(.7);opacity:.5}}
+.routechip .meta{white-space:normal}
+@media (min-width:900px){ body.sheet-open .routechip{margin-left:412px;max-width:calc(100% - 412px)} }
+
+/* ---------- events on the map ---------- */
+.pin.event .pin-badge{background:var(--sky)}
+.pin.event .pin-head{border-style:dashed}
+.live-pill[style*="--dotc"] i{background:var(--dotc);animation:none}
+
+/* ---------- street map (MapLibre over the paused 3D island) ---------- */
+.street{position:fixed;inset:0;z-index:4;background:#45B8FF}
+#street > .street-map{position:absolute;inset:0;width:100%;height:100%}
+body.street #stage{visibility:hidden}
+body.street .pins,body.street .hint{display:none}
+.spin{width:0;height:0;padding:0;border:0;background:none;cursor:pointer;position:relative}
+.spin .pin-label{font-size:16px}
+.spin:hover .pin-head{transform:rotate(-45deg) scale(1.12)}
+.spin.sel{z-index:2}
+.spin.sel .pin-head{animation:bob .9s ease-in-out infinite}
+.spin.hot .pin-badge::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#E8263B;margin-right:5px;vertical-align:1px;animation:blink 1.2s infinite}
+.spin.event .pin-badge{background:var(--sky)}
+.spin.event .pin-head{border-style:dashed}
+.spin.user .pin-badge{background:var(--pink)}
+.spin[hidden]{display:none}
+.you-dot{width:20px;height:20px;border-radius:50%;background:#45B8FF;border:3px solid #FFFFFF;box-shadow:0 0 0 2.5px var(--line),0 0 0 12px rgba(69,184,255,.28)}
+#fabStreet[aria-pressed="true"]{background:var(--sun);color:var(--on-bright)}
+#fabStreet[data-busy] .i{animation:locpulse 1s ease-in-out infinite}
+#fabSave[data-saved="true"]{background:var(--leaf);color:var(--on-bright)}
+.street .maplibregl-ctrl-attrib{font:12px var(--fb)}
+body.street .strip{bottom:0}

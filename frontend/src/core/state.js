@@ -4,6 +4,7 @@ export const state = {
   cats: {},          // id -> { label, one, color, icon }
   places: [],        // curated places, merged with live status
   spots: [],         // community spots visible to this device
+  events: [],        // upcoming events (next occurrence each), shaped like places
   feed: [],          // live feed items
   filter: 'all',
   selectedId: null,
@@ -12,6 +13,6 @@ export const state = {
   user: null         // { id, name, email } when signed in with Google
 };
 
-export const allPlaces = () => state.places.concat(state.spots);
+export const allPlaces = () => state.places.concat(state.spots, state.events);
 export const byId = id => allPlaces().find(p => p.id === id);
 export const catOf = p => state.cats[p.cat] || Object.values(state.cats)[0];

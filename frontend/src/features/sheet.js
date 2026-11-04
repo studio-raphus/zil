@@ -10,17 +10,29 @@ import { focusPoint } from '../map/engine.js';
 import { drawRoute, clearRoute } from '../map/route.js';
 import { setSelected } from './overlay.js';
 import { config } from '../config.js';
+import { api } from '../api/client.js';
+import { ensureLocation } from './location.js';
 
 const sheet = $('#sheet'), body = $('#sheetBody'), routeChip = $('#routeChip');
 const view = { name: null, place: null, addCat: 'beach', near: null };
 
+const fmtMin = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+const fmtKm = km => km < 10 ? km.toFixed(1) : String(Math.round(km));
+// Straight-line guess shown instantly; replaced by the road time when the routing service answers.
 function fromYou(p) {
-  const km = Math.hypot(p.pos.x - ctx.you.x, p.pos.z - ctx.you.z) * 1.35, m = Math.round(km / 38 * 60 + 5);
-  return m < 60 ? `≈ ${m} min` : `≈ ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+  const km = Math.hypot(p.pos.x - ctx.you.x, p.pos.z - ctx.you.z) * 1.35;
+  return `≈ ${fmtMin(Math.round(km / 38 * 60 + 5))}`;
+}
+const roadFor = p => api.route(ctx.youLL, { lat: p.lat, lon: p.lon });
+async function fillEta(p) {
+  const r = await roadFor(p), dd = body.querySelector('[data-eta]');
+  if (!r || !dd || view.place !== p) return;
+  dd.textContent = `${fmtMin(Math.max(1, Math.round(r.duration_s / 60)))} drive`;
+  dd.title = `${fmtKm(r.distance_m / 1000)} km by road from ${ctx.youLL.real ? 'you' : config.fallbackStart.label}`;
 }
 function art(p) {
   const c = catOf(p);
-  return `<div class="art" style="--c:${c.color}"><div class="burst"></div><span class="big">${ic(c.icon)}</span>${p.hot ? '<span class="livetag">LIVE</span>' : ''}<span class="cat">${p.user ? 'Community · ' : ''}${esc(c.one)}</span></div>`;
+  return `<div class="art" style="--c:${c.color}"><div class="burst"></div><span class="big">${ic(c.icon)}</span>${p.hot ? '<span class="livetag">LIVE</span>' : ''}<span class="cat">${p.user ? 'Community · ' : p.event ? 'Event · ' : ''}${esc(c.one)}</span></div>`;
 }
 
 const RENDER = {
@@ -29,9 +41,9 @@ const RENDER = {
     return `${art(p)}<h2 class="title" style="--c:${c.color}">${esc(p.name)}</h2>
       ${p.live ? `<div class="live-pill"><i></i>${esc(p.live)}</div>` : ''}
       <p class="blurb">${esc(p.blurb)}</p>
-      <dl class="facts3"><div><dt>Time</dt><dd>${esc(p.time)}</dd></div><div><dt>Best</dt><dd>${esc(p.best)}</dd></div><div><dt>From you</dt><dd>${fromYou(p)}</dd></div></dl>
+      <dl class="facts3"><div><dt>Time</dt><dd>${esc(p.time)}</dd></div><div><dt>Best</dt><dd>${esc(p.best)}</dd></div><div><dt>${ctx.youLL?.real ? 'From you' : 'From airport'}</dt><dd data-eta>${fromYou(p)}</dd></div></dl>
       <div class="actions">
-        <button class="btn filled" type="button" data-act="route">${ic('route')}Route from my hotel</button>
+        <button class="btn filled" type="button" data-act="route">${ic('route')}Directions</button>
         <span class="btn tonal" aria-disabled="true">${esc(p.cost)}</span>
         ${f.booking ? '<button class="btn" type="button" data-act="book">Book</button>' : ''}
         ${f.ar ? '<button class="btn" type="button" data-act="ar">AR</button>' : ''}
@@ -41,10 +53,21 @@ const RENDER = {
       <div class="tips">${(p.tips || []).map(t => `<span class="tip">${esc(t)}</span>`).join('')}</div>
       <p class="fine">Live info comes from Zil’s live feed and may change during the day.</p>`;
   },
+  event: p => {
+    const s = new Date(p.starts_at), e = new Date(p.ends_at);
+    const day = s.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+    const hrs = `${s.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}–${e.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    return `${art(p)}<h2 class="title" style="--c:${catOf(p).color}">${esc(p.name)}</h2>
+      <div class="live-pill"${p.hot ? '' : ' style="--dotc:#45B8FF"'}><i></i>${esc(p.live)}</div>
+      ${p.blurb ? `<p class="blurb">${esc(p.blurb)}</p>` : ''}
+      <dl class="facts3"><div><dt>When</dt><dd>${p.recurring ? `Every ${s.toLocaleDateString([], { weekday: 'long' })}` : esc(day)}<br>${esc(hrs)}</dd></div><div><dt>Where</dt><dd>${esc(p.venue || 'See map')}</dd></div><div><dt>${ctx.youLL?.real ? 'From you' : 'From airport'}</dt><dd data-eta>${fromYou(p)}</dd></div></dl>
+      <div class="actions"><button class="btn filled" type="button" data-act="route">${ic('route')}Directions</button>${p.price ? `<span class="btn tonal" aria-disabled="true">${esc(p.price)}</span>` : ''}${p.place_id ? `<button class="btn" type="button" data-act="goplace" data-id="${esc(p.place_id)}">About the place</button>` : ''}</div>
+      <p class="fine">Event details come from the Zil team. Check with the organiser before you travel far.</p>`;
+  },
   spot: p => `${art(p)}<h2 class="title" style="--c:${catOf(p).color}">${esc(p.name)}</h2>
       <div class="live-pill"><i></i>${p.status === 'approved' ? 'Community spot' : p.status === 'rejected' ? 'Not approved' : 'Pending review · only you can see it'}</div>
       <p class="blurb">${p.note ? esc(p.note) : '<span class="muted">No notes yet.</span>'}</p>
-      <div class="actions"><button class="btn filled" type="button" data-act="route">${ic('route')}Route</button>${p.mine ? `<button class="btn" type="button" data-act="remove">${ic('trash')}Remove spot</button>` : ''}</div>
+      <div class="actions"><button class="btn filled" type="button" data-act="route">${ic('route')}Directions</button>${p.mine ? `<button class="btn" type="button" data-act="remove">${ic('trash')}Remove spot</button>` : ''}</div>
       <p class="fine">${state.offline ? 'Saved on this device only (offline mode).' : 'Community spots are checked by the Zil team before other travellers can see them.'}</p>`,
   add: () => `<h2 class="title" style="--c:var(--sun)">Drop a new spot</h2>
       <p class="muted" style="margin:0 0 16px">Pinned ${view.near ? 'near ' + esc(view.near.short) : 'on the island'}. Tell travellers what makes it special.</p>
@@ -77,15 +100,25 @@ export function select(id) {
   bus.emit('add:exit');
   state.selectedId = id; setSelected(id);
   focusPoint(p.pos);
-  openSheet(p.user ? 'spot' : 'detail', p);
+  openSheet(p.event ? 'event' : p.user ? 'spot' : 'detail', p);
+  if (!p.user) fillEta(p);
 }
 
-function showRoute(p) {
-  const { km, minutes } = drawRoute([p], { sheetOpen: sheet.classList.contains('open') });
-  const time = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}` : `${minutes} min`;
-  routeChip.innerHTML = `<span class="rc-ic">${ic('route')}</span><b>You → ${esc(p.short || p.name)}</b><span class="meta">≈ ${Math.round(km)} km · ${time} driving</span><button class="iconbtn sm" type="button" id="rcX" aria-label="Clear route">${ic('close')}</button>`;
-  routeChip.hidden = false;
-  $('#rcX').onclick = () => { clearRoute(); routeChip.hidden = true; };
+let routeSeq = 0;
+async function showRoute(p) {
+  const seq = ++routeSeq, sheetOpen = sheet.classList.contains('open');
+  routeChip.innerHTML = `<span class="rc-ic">${ic('route')}</span><b>Finding the road…</b>`; routeChip.hidden = false;
+  const real = await ensureLocation();          // asks for location the first time
+  const road = await roadFor(p);
+  if (seq !== routeSeq) return;                  // a newer request won
+  const r = drawRoute([p], { sheetOpen, road });
+  bus.emit('route:shown', { coords: road ? road.coords : [[ctx.youLL.lat, ctx.youLL.lon], [p.lat, p.lon]] });
+  const from = real ? 'You' : 'Airport', dest = esc(p.short || p.name);
+  const meta = r.road
+    ? `${fmtKm(r.km)} km · ${fmtMin(r.minutes)} by road${r.offroadKm > 0.3 ? ` · last ${fmtKm(r.offroadKm)} km off-road` : ''}`
+    : `≈ ${fmtKm(r.km)} km · ${fmtMin(r.minutes)} (straight-line estimate)`;
+  routeChip.innerHTML = `<span class="rc-ic">${ic(r.road ? 'car' : 'route')}</span><b>${from} → ${dest}</b><span class="meta">${meta}</span><button class="iconbtn sm" type="button" id="rcX" aria-label="Clear route">${ic('close')}</button>`;
+  $('#rcX').onclick = () => { routeSeq++; clearRoute(); routeChip.hidden = true; bus.emit('route:cleared'); };
 }
 
 export function initSheet() {
@@ -98,6 +131,7 @@ export function initSheet() {
     if (a === 'close') closeSheet();
     else if (a === 'route') { showRoute(p); if (!isWide()) closeSheet(); }
     else if (a === 'remove') bus.emit('spot:remove', p);
+    else if (a === 'goplace') select(b.dataset.id);
     else if (a === 'pickcat') {
       view.addCat = b.dataset.k;
       b.parentElement.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === b)));

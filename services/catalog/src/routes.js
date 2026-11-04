@@ -1,5 +1,6 @@
-// Catalog service: read-only API for categories and curated places.
+// Catalog service: categories, curated places and events (public reads + Studio writes in admin.js).
 import { query } from './db.js';
+import admin from './admin.js';
 
 const placeCols = `id, name, short, cat, lat, lon, time_needed AS time, best_time AS best, cost, blurb, fact, tips, tags, translations`;
 
@@ -11,6 +12,7 @@ function localise(row, lang) {
 }
 
 export default async function routes(app) {
+  await app.register(admin);
   app.get('/categories', async (req, reply) => {
     reply.header('Cache-Control', 'public, max-age=300');
     const { rows } = await query('SELECT id, label, one, color, icon FROM categories ORDER BY sort_order');

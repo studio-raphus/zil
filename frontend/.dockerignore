@@ -1,0 +1,7 @@
+# Keep host-built and native-only files out of the web image build
+node_modules
+dist
+android
+assets
+.DS_Store
+*.log

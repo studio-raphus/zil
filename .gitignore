@@ -1,6 +1,14 @@
 node_modules/
 dist/
 .env
-frontend/android/
 e2e-shots/
 *.log
+secrets/*
+!secrets/README.md
+.ztest/
+# Android build outputs and local files (the android/ project itself is committed)
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/app/google-services.json

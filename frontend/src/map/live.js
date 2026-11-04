@@ -9,7 +9,7 @@ import { config } from '../config.js';
 
 const INK = 0x1B1A2E;
 const boats = [], dolphins = [], clouds = [], heats = [], avatars = [];
-let plane = null, ship = null, youRing = null, cloudMat = null, heatTex = null;
+let plane = null, ship = null, youRing = null, cloudMat = null, heatTex = null, me = null;
 
 const tap = (o, fn) => { o.userData.tap = fn; ctx.tappables.push(o); };
 const curveOf = pts => new THREE.CatmullRomCurve3(pts.map(([a, b]) => { const p = ll(a, b); return new THREE.Vector3(p.x, 0.03, p.z); }), true, 'centripetal');
@@ -105,7 +105,7 @@ export function buildLive(rnd) {
 
   // avatars: you + two demo travel buddies
   const crew = [
-    { lat: config.youLatLon[0], lon: config.youLatLon[1], b: 0xFF5A36, c: 0xFFC83D, s: 0xD9A07A, label: 'You', me: true, msg: 'That’s you, at your hotel in Pereybère (demo location).' },
+    { lat: config.fallbackStart.lat, lon: config.fallbackStart.lon, b: 0xFF5A36, c: 0xFFC83D, s: 0xD9A07A, label: 'You', me: true, msg: 'That’s you. Tap a place, then Directions, for the road route.' },
     { lat: -20.441, lon: 57.333, b: 0x45B8FF, c: 0x3DD47E, s: 0x8D5A3B, label: 'Aïsha · on the trail', msg: 'Aïsha is halfway up Le Morne and just sent you a wave.' },
     { lat: -20.268, lon: 57.803, b: 0xB49BFF, c: 0xFF4F8B, s: 0xF2C9A5, label: 'Tom · sandbank chill', msg: 'Tom is on the Île aux Cerfs sandbank. Boats back every 20 min.' }
   ];
@@ -115,8 +115,11 @@ export function buildLive(rnd) {
     avatars.push({ obj: g, y, ph: avatars.length * 1.7, label: cr.label, me: !!cr.me });
     if (cr.me) {
       ctx.you = new THREE.Vector3(p.x, y, p.z);
+      ctx.youLL = { lat: cr.lat, lon: cr.lon, real: false };
       youRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.55, 28), new THREE.MeshBasicMaterial({ color: 0xFF5A36, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
       youRing.rotation.x = -Math.PI / 2; youRing.position.set(p.x, y + 0.03, p.z); scene.add(youRing);
+      me = avatars[avatars.length - 1];
+      g.visible = youRing.visible = false; // shown once the device reports a location on the island
     }
   }
 
@@ -185,3 +188,12 @@ function animate(now, dt, t) {
 }
 
 export const liveScale = r => clamp(r / 26, 1, 3.4);
+
+/** Move the "You" avatar (and the route start) to a lat/lon. real=false hides the avatar. */
+export function setYou(lat, lon, real) {
+  const p = ll(lat, lon), y = groundY(p.x, p.z);
+  ctx.you.set(p.x, y, p.z); ctx.youLL = { lat, lon, real: !!real };
+  if (!me) return;
+  me.obj.position.set(p.x, y, p.z); me.y = y; me.obj.visible = !!real;
+  youRing.position.set(p.x, y + 0.03, p.z); youRing.visible = !!real;
+}

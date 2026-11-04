@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Zil Phase 1 API (via gateway)
   version: 0.1.0
-  description: Four independent services behind one gateway (catalog, spots, live, accounts). Paths below include the gateway prefix.
+  description: Independent services behind one gateway (catalog, spots, live, accounts, routing). Studio writes need an editor/admin session (cookie) or the admin token. Paths below include the gateway prefix.
 servers:
   - url: http://localhost:8080/api
 components:
@@ -143,3 +143,42 @@ paths:
     post:
       summary: Ends the session and clears the cookie
       responses: { '204': { description: Signed out } }
+  /accounts/v1/auth/google/native:
+    post:
+      summary: App sign-in. Body {id_token} from Google (Credential Manager); verified against Google's keys. Returns {token, user, created}; send the token as X-Zil-Session.
+  /accounts/v1/users:
+    get: { summary: Team list (admin), security: [{ session: [] }] }
+  /accounts/v1/users/{id}/role:
+    patch: { summary: 'Set role user|editor|admin (admin; not your own)', security: [{ session: [] }] }
+  /catalog/v1/events:
+    get:
+      summary: Upcoming events (weekly ones expanded into occurrences). Query from (date-time), days (1-60, default 14), lang
+  /catalog/v1/admin/places:
+    get: { summary: All places incl. drafts (editor), security: [{ session: [] }, { admin: [] }] }
+    post: { summary: Create a place (draft unless published=true), security: [{ session: [] }, { admin: [] }] }
+  /catalog/v1/admin/places/{id}:
+    patch: { summary: Update any fields, security: [{ session: [] }, { admin: [] }] }
+    delete: { summary: Delete a place, security: [{ session: [] }, { admin: [] }] }
+  /catalog/v1/admin/events:
+    get: { summary: All events (editor), security: [{ session: [] }, { admin: [] }] }
+    post: { summary: 'Create an event: place_id or lat/lon, starts_at < ends_at, optional repeat_weekly/repeat_until', security: [{ session: [] }, { admin: [] }] }
+  /catalog/v1/admin/events/{id}:
+    patch: { summary: Update an event, security: [{ session: [] }, { admin: [] }] }
+    delete: { summary: Delete an event, security: [{ session: [] }, { admin: [] }] }
+  /live/v1/status/{place_id}:
+    delete: { summary: Clear a place's live status (pushed to apps as an empty text), security: [{ session: [] }, { admin: [] }] }
+  /live/v1/push/devices:
+    post: { summary: 'Register an app install for push: {token, platform}' }
+    delete: { summary: Unregister a push token }
+  /live/v1/push:
+    get: { summary: Push status (configured, device count, recent sends) (editor), security: [{ session: [] }, { admin: [] }] }
+  /live/v1/push/send:
+    post: { summary: 'Send a notification to every registered device: {title, body, place_id?} (editor)', security: [{ session: [] }, { admin: [] }] }
+  /routing/v1/route:
+    get:
+      summary: Road route on Mauritius. Query from=lat,lon&to=lat,lon. Returns distance_m, duration_s, coords [[lat,lon]...], offroad_m {from,to}
+      responses:
+        '200': { description: Route }
+        '404': { description: No road route }
+        '422': { description: Point outside Mauritius }
+

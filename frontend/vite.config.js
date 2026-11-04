@@ -9,7 +9,10 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
-    chunkSizeWarningLimit: 900,
-    rollupOptions: { output: { manualChunks: { three: ['three'] } } }
+    chunkSizeWarningLimit: 1100, // maplibre-gl, loaded only when the street map opens
+    rollupOptions: {
+      input: { app: 'index.html', studio: 'admin/index.html' },
+      output: { manualChunks: { three: ['three'] } }
+    }
   }
 });

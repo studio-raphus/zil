@@ -8,7 +8,13 @@ export const config = {
     ar: import.meta.env.VITE_FEATURE_AR === 'true',
     assistant: import.meta.env.VITE_FEATURE_ASSISTANT === 'true'
   },
-  // Demo traveller position (Pereybère) until device location is added in phase 2.
-  youLatLon: [-20.003, 57.598],
+  // Where routes start when the device location is unknown, denied or outside Mauritius.
+  fallbackStart: { lat: -20.4302, lon: 57.6836, label: 'the airport' },
+  // Main island + nearby islets: a location outside this box counts as "not in Mauritius".
+  islandBounds: { minLat: -20.6, maxLat: -19.85, minLon: 57.25, maxLon: 57.9 },
+  // Street-level map (PMTiles + fonts from the tiles service, behind the gateway)
+  // Google web client ID, used by native sign-in in the Android app (Credential Manager)
+  googleWebClientId: import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID || '',
+  tilesBase: (import.meta.env.VITE_TILES_BASE || '/tiles').replace(/\/$/, ''),
   requestTimeoutMs: 6000
 };

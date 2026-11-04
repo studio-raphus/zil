@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Zil</string>
+    <string name="title_activity_main">Zil</string>
+    <string name="package_name">mu.zil.app</string>
+    <string name="custom_url_scheme">mu.zil.app</string>
+</resources>

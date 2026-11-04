@@ -12,7 +12,9 @@ const routes = {
   '/api/catalog/': process.env.CATALOG_URL || 'http://127.0.0.1:3001',
   '/api/spots/': process.env.SPOTS_URL || 'http://127.0.0.1:3002',
   '/api/live/': process.env.LIVE_URL || 'http://127.0.0.1:3003',
-  '/api/accounts/': process.env.ACCOUNTS_URL || 'http://127.0.0.1:3004'
+  '/api/accounts/': process.env.ACCOUNTS_URL || 'http://127.0.0.1:3004',
+  '/api/routing/': process.env.ROUTING_URL || 'http://127.0.0.1:3005',
+  '/tiles/': process.env.TILES_URL || 'http://127.0.0.1:3006'
 };
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 

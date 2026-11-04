@@ -15,6 +15,12 @@ import { initStrip, renderStrip } from './features/livestrip.js';
 import { initSheet } from './features/sheet.js';
 import { initSpots, spotToPlace } from './features/spots.js';
 import { initAccount } from './features/account.js';
+import { initLocation } from './features/location.js';
+import { eventsToPlaces } from './features/events.js';
+import { initStreet, setStreetNight, streetOpen, leaveStreet } from './features/street.js';
+import { initNative } from './features/native.js';
+import { closeSheet } from './features/sheet.js';
+import { bus } from './core/bus.js';
 
 function placePosition(p) {
   const q = ll(p.lat, p.lon);
@@ -43,13 +49,23 @@ async function boot() {
 
   state.places.forEach(placePosition);
   state.spots = data.spots.map(s => placePosition(spotToPlace(s)));
+  state.events = eventsToPlaces(data.events || [], placePosition);
 
-  initChrome({ onHome: home, onNorth: northUp, onNight: setNight });
+  initChrome({ onHome: home, onNorth: northUp, onNight: on => { setNight(on); setStreetNight(); } });
   if (api.offline) setOfflineBadge(true);
   initAccount();
+  initLocation();
+  initStreet();
+  // Android: hide the splash, and let the back button close the sheet / street map first.
+  initNative({ onBack: () => {
+    if (document.body.classList.contains('sheet-open')) { closeSheet(); return true; }
+    if (streetOpen()) { leaveStreet(); return true; }
+    return false;
+  } });
   initOverlay(ctx.avatars);
   state.places.forEach(addPin);
   state.spots.forEach(addPin);
+  state.events.forEach(addPin);
   syncHeats();
   initFilters();
   initSearch();
@@ -60,7 +76,8 @@ async function boot() {
   api.subscribeLive(s => {
     applyStatus(s);
     const p = byId(s.place_id); if (!p) return;
-    refreshPin(p); syncHeats();
+    refreshPin(p); syncHeats(); bus.emit('place:updated', p);
+    if (!s.text) { renderStrip(); return; } // cleared from Studio
     state.feed.unshift({ id: Date.now(), place_id: s.place_id, text: s.text, created_at: s.updated_at || new Date().toISOString() });
     renderStrip();
     snack(`${p.short}: ${s.text}`);
@@ -68,3 +85,8 @@ async function boot() {
 }
 
 boot().catch(e => { console.error(e); showFallback(e, state.places); });
+
+// Offline street map: the service worker answers tile range requests from a saved copy.
+if (import.meta.env.PROD && 'serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('/sw.js').catch(e => console.warn('[zil] service worker not registered:', e.message));
+}

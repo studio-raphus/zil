@@ -2,26 +2,27 @@
 
 A playful 3D map of Mauritius: curated places, live updates and community spots, with the same toon/comic interface as the prototype, responsive from phones to desktops.
 
-**Phase 1 scope:** 3D map, places and categories, search and filters, live status and the "Live now" strip (pushed in real time), community spots with moderation, routes from your hotel, and day/night mode.
+**Phase 1 scope:** 3D map, places, events and categories, search and filters, live status and the "Live now" strip (pushed in real time), community spots with moderation, your real location with road routes, street-level maps (also offline), day/night mode, Google sign-in, the Zil Studio admin portal, and the Android app with push notifications.
 **Not in Phase 1:** bookings, AR and the Dodo assistant. Their buttons are behind feature flags (`VITE_FEATURE_BOOKING`, `VITE_FEATURE_AR`, `VITE_FEATURE_ASSISTANT`), so they can be switched on later without touching the layout.
 
 ```
-┌──────────── clients ────────────┐
-│ Web / PWA      Android (Capacitor shell, same build)
-└───────────────┬─────────────────┘
-                │ HTTPS, one origin
-        ┌───────▼────────┐
-        │  API gateway   │  nginx (or Kong, Traefik, cloud gateway, k8s Ingress)
-        └─┬─────┬─────┬──┘
- /api/catalog /api/spots /api/live          / (static frontend)
-   │          │          │
-┌──▼───┐  ┌───▼──┐  ┌────▼──┐
-│catalog│  │spots │  │ live  │   Node 22 + Fastify, one container each
-└──┬───┘  └───┬──┘  └───┬───┘
-   │          │         │   LISTEN/NOTIFY → SSE fan-out across replicas
-┌──▼──────────▼─────────▼───┐
-│ PostgreSQL 16 + PostGIS   │   one database per service (zil_catalog, zil_spots, zil_live)
-└───────────────────────────┘
+┌──────────────── clients ─────────────────┐
+│ Web / PWA    Android app (Capacitor)     │   Zil Studio (/admin, the team's portal)
+└───────────────────┬──────────────────────┘
+                    │ HTTPS, one origin
+            ┌───────▼────────┐
+            │  API gateway   │  nginx (or Kong, Traefik, cloud gateway, k8s Ingress)
+            └┬──┬──┬──┬──┬──┬┘
+ /api/catalog │  │  │  │  │  └ /tiles ─────► tiles (nginx: Mauritius PMTiles + fonts)
+   /api/spots ┘  │  │  │  └─── /api/routing ► routing ─► osrm (Mauritius road network)
+     /api/live ──┘  │  └────── /             ► frontend (app + /admin Studio)
+ /api/accounts ─────┘
+┌────────┐ ┌──────┐ ┌──────┐ ┌──────────┐
+│catalog │ │spots │ │ live │ │ accounts │   Node 22 + Fastify, one container each
+└───┬────┘ └──┬───┘ └──┬───┘ └────┬─────┘   live: LISTEN/NOTIFY → SSE fan-out; FCM push
+┌───▼─────────▼────────▼──────────▼───┐
+│ PostgreSQL 16 + PostGIS             │   one database per service
+└─────────────────────────────────────┘
 ```
 
 ## Prerequisites
@@ -74,15 +75,13 @@ cd frontend && npm i && npm run build && cd .. && node tools/dev-gateway.mjs   #
 
 **Frontend only:** `cd frontend && npm i && npm run dev`. If no backend answers, the app uses the bundled seed (`public/seed/places.json`) and shows an OFFLINE badge.
 
-**Android:**
+**Android:** see [Android app](#android-app) below.
 
-```bash
-cd frontend
-VITE_API_BASE=https://api.your-domain.mu/api npm run android:setup   # first time: installs Capacitor, adds android/
-npm run android:sync && npm run android:open                        # build in Android Studio, run on a phone
-```
+**First build:** `docker compose up --build` now also builds two map images, which download data once:
+- `osrm`: the Mauritius road network from Geofabrik (OpenStreetMap), prepared for routing (1–3 min).
+- `tiles`: Mauritius cut out of the latest Protomaps basemap (street level, zoom 15) plus label fonts (a few minutes; tens of MB).
 
-Personal Play accounts must run a closed test (12+ testers for 14 days) before production.
+Refresh either with `docker compose build --no-cache osrm` / `tiles` (monthly is plenty).
 
 ## Sign in with Google (accounts service)
 
@@ -97,6 +96,50 @@ One-time setup:
 5. Existing database volume only: `docker compose exec -T db psql -U postgres < db/init/02-accounts.sql`, then `docker compose up --build`.
 
 Without the Google keys the service still runs; the sign-in card says Google sign-in isn't configured.
+
+## Zil Studio (admin portal)
+
+Open **http://localhost:8080/admin** and sign in with Google. Studio is where the team manages everything people see on the map:
+
+| Section | What it does |
+| --- | --- |
+| Places | Create and edit places in English and French: category, pin (click the island or paste a Google Maps link), visit info, tips, draft/published |
+| Events | One-off or weekly events (night markets, festivals) at a place or at their own pin; shown on the map for the next 7 days with an *Events* filter |
+| Live updates | Post a place's one-line status (pushed to every open app within a second), mark it hot, clear it; send push notifications to the Android app |
+| Moderation | Community spots waiting for review: approve, reject, or promote to a full place |
+| Team (admins) | Give people the *editor* or *admin* role |
+
+**The first admin:** put your Google email in `.env` as `ADMIN_EMAILS=you@example.com` (comma-separated for several), restart `accounts`, then sign in at `/admin`. That account becomes an admin and can promote others in *Team*. The `ADMIN_TOKEN` still works for scripts (`Authorization: Bearer …`).
+
+## Location, road routes and the street map
+
+- **Your location:** the locate button asks once; "You" then follows your phone's GPS and routes start there. Outside Mauritius (or with location off), routes start from the airport. The position is only sent to the routing service as a route's start point.
+- **Road routes:** *Directions* asks the `routing` service, Zil's own API in front of a self-hosted OSRM engine with the Mauritius road network. Distances and drive times are by road; the route is drawn along the roads on the 3D island and on the street map.
+- **Street map:** zoom all the way into the island (or tap the map button) and a MapLibre street map takes over at the same spot, drawn from Zil's own tiles in Zil colours. Zoom back out to fly back to the island. In the street map, the download button saves the whole island map (tiles + fonts) on the device for offline use; a small service worker (`public/sw.js`) serves it when there's no signal.
+
+## Android app
+
+The `frontend/android/` project is committed (Capacitor 8). It has native Google sign-in (Credential Manager), native GPS, push notifications (FCM), the Zil icon and splash screens, and the Android back button wired to the sheet and street map.
+
+**One-time setup**
+
+1. **Android Studio** (latest) with JDK 21.
+2. **Google sign-in:** in Google Cloud Console → Credentials → *Create OAuth client ID* → **Android**: package `mu.zil.app`, SHA-1 from `cd frontend/android && ./gradlew signingReport` (debug), and later the Play App Signing key's SHA-1 (Play Console → App integrity). The app uses your existing **web** client ID (below); the Android client only proves the APK is yours.
+3. **Firebase (push):** in the [Firebase console](https://console.firebase.google.com) add Firebase to the same Google Cloud project, add an Android app `mu.zil.app`, download `google-services.json` to `frontend/android/app/`. For the backend: *Project settings → Service accounts → Generate new private key*, save as `secrets/firebase-service-account.json`, restart `live`.
+4. **API from the phone:** the app calls the backend at `VITE_API_BASE`. For local testing with a USB phone: `adb reverse tcp:8080 tcp:8080` and use `http://localhost:8080`. Add `https://localhost` to `CORS_ORIGINS` (or keep `*`).
+
+**Build and run**
+
+```bash
+cd frontend
+npm install
+VITE_API_BASE=http://localhost:8080/api VITE_TILES_BASE=http://localhost:8080/tiles \
+VITE_GOOGLE_WEB_CLIENT_ID=<your web client id> npm run android:sync
+npm run android:open            # Android Studio: Run on a phone, or Build › Generate Signed App Bundle
+npm run android:assets          # only if you change the icon/splash sources in frontend/assets/
+```
+
+For a release, point `VITE_API_BASE` / `VITE_TILES_BASE` at your HTTPS domain. Play listing text and graphics are in [`docs/play/`](docs/play/). Personal Play accounts must run a closed test (12+ testers for 14 days) before production.
 
 ## Try the live and moderation APIs
 
@@ -122,15 +165,21 @@ services/
   catalog/          categories + places (PostGIS: bbox and "near me" queries), seeded from seed/places.json
   spots/            community spots: create, list, delete own, moderation queue, approve/reject
   live/             status lines, feed, Server-Sent Events stream, admin updates
-  accounts/         sign in with Google (OAuth code flow + PKCE), users (name + email), sessions
+  accounts/         sign in with Google (web: OAuth code flow + PKCE; app: verified ID token), users (name + email), roles, sessions
+  routing/          road routes API (src/) + OSRM engine image with the Mauritius road network (osrm/)
+  tiles/            street-map tiles: Mauritius PMTiles cut from Protomaps + label fonts, served by nginx
 frontend/
   src/core/         utils, icons, event bus, state
   src/api/          API client with offline fallback
   src/map/          three.js engine, geography, world, live 3D layer, routes
-  src/features/     overlay pins, sheet, search, filters, live strip, spots, chrome
+  src/features/     overlay pins, sheet, search, filters, live strip, spots, events, location, street map, account, native (Android)
+  src/studio/       Zil Studio admin portal (admin/index.html): places, events, live, moderation, team
+  assets/           icon + splash sources for the Android app (npm run android:assets)
+  android/          Capacitor Android project
+secrets/            git-ignored: Firebase service account for push
   src/styles/       the prototype's comic/Material styles
 tools/              dev gateway (no Docker needed), headless smoke test
-docs/               phase plan, OpenAPI contracts
+docs/               phase plan, OpenAPI contracts, Play Store listing (play/)
 ```
 
 ## Design rules (modular and agnostic)

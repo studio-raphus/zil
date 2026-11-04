@@ -1,6 +1,7 @@
 // Spots service: community-added places. New spots are private to their creator until a
 // moderator approves them. Phase 1 identifies owners by an anonymous device id header.
 import { query } from './db.js';
+import { caller, requireRole, staffLabel } from './staff.js';
 
 const CATS = (process.env.ALLOWED_CATEGORIES || 'beach,nature,culture,food,adventure').split(',');
 // Mauritius main island + nearby islets
@@ -13,10 +14,7 @@ function deviceId(req) {
   const id = req.headers['x-device-id'];
   return typeof id === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(id) ? id : null;
 }
-function isAdmin(req) {
-  const token = process.env.ADMIN_TOKEN;
-  return !!token && req.headers.authorization === `Bearer ${token}`;
-}
+const isStaff = async req => ['editor', 'admin'].includes((await caller(req))?.role);
 
 export default async function routes(app) {
   // Approved spots for everyone, plus the caller's own pending/rejected ones.
@@ -55,24 +53,25 @@ export default async function routes(app) {
 
   app.delete('/spots/:id', { schema: { params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } } }, async (req, reply) => {
     const dev = deviceId(req);
-    const { rowCount } = await query('DELETE FROM spots WHERE id = $1 AND (device_id = $2 OR $3)', [req.params.id, dev || '', isAdmin(req)]);
+    const { rowCount } = await query('DELETE FROM spots WHERE id = $1 AND (device_id = $2 OR $3)', [req.params.id, dev || '', await isStaff(req)]);
     if (!rowCount) return reply.code(404).send({ error: 'not_found', message: 'Spot not found or not yours' });
     return reply.code(204).send();
   });
 
-  // Moderation (admin token). Phase 1 has no admin UI; use curl or a small internal tool.
-  app.get('/moderation/queue', async (req, reply) => {
-    if (!isAdmin(req)) return reply.code(401).send({ error: 'unauthorized', message: 'Admin token required' });
+  // Moderation from Zil Studio (editor/admin account) or a script with the admin token.
+  app.get('/moderation/queue', { onRequest: requireRole('editor', 'admin') }, async (req, reply) => {
+    reply.header('Cache-Control', 'no-store');
     const { rows } = await query(`SELECT ${cols}, device_id FROM spots WHERE status = 'pending' ORDER BY created_at LIMIT 200`);
     return rows;
   });
 
   app.patch('/spots/:id/status', {
+    onRequest: requireRole('editor', 'admin'),
     schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['approved', 'rejected', 'pending'] } } } }
   }, async (req, reply) => {
-    if (!isAdmin(req)) return reply.code(401).send({ error: 'unauthorized', message: 'Admin token required' });
     const { rows } = await query(`UPDATE spots SET status = $2, reviewed_at = now() WHERE id = $1 RETURNING ${cols}`, [req.params.id, req.body.status]);
     if (!rows.length) return reply.code(404).send({ error: 'not_found', message: 'No such spot' });
+    req.log.info({ by: staffLabel(req), spot: req.params.id, status: req.body.status }, 'spot moderated');
     return rows[0];
   });
 }

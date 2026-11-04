@@ -9,7 +9,9 @@ export const ctx = {
   frameHooks: [],     // fn(now, dt, t, cameraDistance) called every frame
   liveK: 1,           // zoom-based scale for live props so they stay visible far out
   night: false,
-  you: null           // THREE.Vector3 of the demo traveller
+  paused: false,      // true while the street map covers the 3D island
+  you: null,          // THREE.Vector3 where routes start (device location, or the fallback start)
+  youLL: null         // { lat, lon, real: bool } for the same point
 };
 
 export function makeMaterials() {
